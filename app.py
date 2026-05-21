@@ -45,7 +45,15 @@ st.markdown("""
 # ---------------------------------------------------------------------------
 from pathlib import Path
 
-DATA_DIR = Path(__file__).resolve().parent / "data"
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+
+
+def _csv(name: str) -> Path:
+    """CSV를 data/ 폴더에서 먼저 찾고, 없으면 app.py 같은 폴더(root)에서 찾는다.
+    → GitHub 드래그 업로드로 폴더 구조가 펴져도 동작하도록."""
+    p = DATA_DIR / name
+    return p if p.exists() else BASE_DIR / name
 
 
 @st.cache_data(show_spinner=False)
@@ -74,15 +82,15 @@ def load_all():
         mode = "live"
     else:
         # --- 사전계산 CSV 폴백 모드 (배포용) ---
-        ppi = pd.read_csv(DATA_DIR / "ppi_table.csv", index_col=0, encoding="utf-8-sig")
-        summary = pd.read_csv(DATA_DIR / "airport_summary.csv", index_col=0, encoding="utf-8-sig")
-        clusters = pd.read_csv(DATA_DIR / "cluster_table.csv", index_col=0,
+        ppi = pd.read_csv(_csv("ppi_table.csv"), index_col=0, encoding="utf-8-sig")
+        summary = pd.read_csv(_csv("airport_summary.csv"), index_col=0, encoding="utf-8-sig")
+        clusters = pd.read_csv(_csv("cluster_table.csv"), index_col=0,
                                encoding="utf-8-sig").squeeze("columns")
-        keywords = pd.read_csv(DATA_DIR / "category_keywords.csv", encoding="utf-8-sig")
+        keywords = pd.read_csv(_csv("category_keywords.csv"), encoding="utf-8-sig")
         components = {}
         n_voc = int(summary["총_불편불만"].sum())
         try:
-            n_users = sum(1 for _ in open(DATA_DIR / "pseudo_user_behavior.csv",
+            n_users = sum(1 for _ in open(_csv("pseudo_user_behavior.csv"),
                                           encoding="utf-8-sig")) - 1
         except FileNotFoundError:
             n_users = 0
@@ -308,9 +316,4 @@ else:
                 st.markdown(f"### {r['대상공항']} — {r['카테고리']} `PPI {r['PPI']:.1f}` {r['우선순위']}")
                 actions = action_for(r["카테고리"], r["PPI"])
                 for i, a in enumerate(actions, 1):
-                    st.markdown(f"- **액션 {i}.** {a}")
-                st.markdown("---")
-
-    st.subheader("처방 패키지 다운로드")
-    csv = flat.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
-    st.download_button("CSV로 다운로드", csv, "처방패키지.csv", "text/csv")
+                    st
