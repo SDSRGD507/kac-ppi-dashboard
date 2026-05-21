@@ -210,7 +210,7 @@ if page == "① 전국 진단":
     )
     fig.update_layout(yaxis=dict(autorange="reversed"), margin=dict(l=0, r=0, t=10, b=10))
     fig.update_traces(texttemplate="%{text:.1f}", textposition="outside")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     st.subheader("PPI 히트맵 — 공항 × 카테고리")
     fig2 = px.imshow(
@@ -218,7 +218,7 @@ if page == "① 전국 진단":
         color_continuous_scale="Reds", height=380,
         labels=dict(x="카테고리", y="공항", color="PPI"),
     )
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width="stretch")
 
     st.info(
         "**해석 가이드** — PPI는 카테고리별 4가지 컴포넌트(불편불만 상대 점유 0.4 / "
@@ -254,12 +254,12 @@ elif page == "② 공항별 PPI 카드":
         polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
         showlegend=False, height=400, margin=dict(t=20, b=20),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     st.subheader(f"{top_cat} 상위 키워드 (내용분류3)")
     kw = keywords[keywords["카테고리"] == top_cat].head(5)
     if not kw.empty:
-        st.dataframe(kw, hide_index=True, use_container_width=True)
+        st.dataframe(kw, hide_index=True, width="stretch")
     else:
         st.write("해당 카테고리 키워드 데이터 없음")
 
@@ -281,7 +281,7 @@ elif page == "③ 클러스터링 뷰":
     for cl in sorted(cluster_df["클러스터"].unique()):
         members = cluster_df[cluster_df["클러스터"] == cl]
         with st.expander(f"🟢 {cl} — {len(members)}개 공항", expanded=True):
-            st.dataframe(members.drop(columns=["클러스터"]), hide_index=True, use_container_width=True)
+            st.dataframe(members.drop(columns=["클러스터"]), hide_index=True, width="stretch")
 
     st.subheader("클러스터별 평균 PPI 프로필")
     cluster_df["클러스터_그룹"] = cluster_df["클러스터"]
@@ -293,7 +293,7 @@ elif page == "③ 클러스터링 뷰":
         color_continuous_scale="Reds", height=320,
         labels=dict(x="카테고리", y="클러스터", color="평균 PPI"),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 # ---------------------------------------------------------------------------
 # Page 4 — 처방 추천
@@ -316,4 +316,5 @@ else:
                 st.markdown(f"### {r['대상공항']} — {r['카테고리']} `PPI {r['PPI']:.1f}` {r['우선순위']}")
                 actions = action_for(r["카테고리"], r["PPI"])
                 for i, a in enumerate(actions, 1):
-                    st
+                    st.markdown(f"- **액션 {i}.** {a}")
+                st
