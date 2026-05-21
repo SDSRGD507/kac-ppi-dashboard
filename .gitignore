@@ -1,0 +1,10 @@
+# === 원본/민감 데이터 — 절대 업로드 금지 ===
+*.xlsx
+data/voc_recategorized.csv
+
+# === 캐시/임시 ===
+__pycache__/
+*.pyc
+preview/
+.DS_Store
+.ipynb_checkpoints/

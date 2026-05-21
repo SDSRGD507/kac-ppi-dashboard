@@ -1,0 +1,7 @@
+# KAC-PPI Dashboard — 2026 국토교통 데이터활용 경진대회
+# 배포 재현성을 위해 검증된 버전으로 고정 (2026-05-21 테스트 기준)
+pandas==2.3.3
+numpy==2.2.6
+openpyxl==3.1.5
+scikit-learn==1.7.2
+streamlit==
