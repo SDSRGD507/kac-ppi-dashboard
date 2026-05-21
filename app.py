@@ -317,4 +317,8 @@ else:
                 actions = action_for(r["카테고리"], r["PPI"])
                 for i, a in enumerate(actions, 1):
                     st.markdown(f"- **액션 {i}.** {a}")
-                st
+                st.markdown("---")
+
+    st.subheader("처방 패키지 다운로드")
+    csv = flat.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+    st.download_button("CSV로 다운로드", csv, "처방패키지.csv", "text/csv")
