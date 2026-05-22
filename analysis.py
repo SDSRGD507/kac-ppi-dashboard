@@ -273,6 +273,11 @@ def run_all(path: Path | str = VOC_FILE):
 
     print("[4/6] Saving PPI tables")
     ppi.to_csv(DATA_DIR / "ppi_table.csv", encoding="utf-8-sig")
+    # 공항×카테고리 불편불만 건수(표본 신뢰도 보정용)
+    _cnt = (df[df["VOC유형"] == "불편불만"]
+            .groupby(["대상공항", "내용분류2"]).size().unstack(fill_value=0)
+            .reindex(index=TARGET_AIRPORTS, columns=TARGET_CATEGORIES, fill_value=0))
+    _cnt.to_csv(DATA_DIR / "ppi_counts.csv", encoding="utf-8-sig")
     summary = pd.DataFrame({
         "종합_PPI": ppi.mean(axis=1).round(1),
         "1위_카테고리": ppi.idxmax(axis=1),

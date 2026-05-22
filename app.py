@@ -97,8 +97,13 @@ def load_all():
         df = None
         mode = "csv"
 
+    try:
+        counts = pd.read_csv(_csv("ppi_counts.csv"), index_col=0, encoding="utf-8-sig")
+    except FileNotFoundError:
+        counts = None
+
     return {
-        "df": df, "ppi": ppi, "components": components,
+        "df": df, "ppi": ppi, "components": components, "counts": counts,
         "clusters": clusters, "keywords": keywords, "summary": summary,
         "n_voc": n_voc, "n_users": n_users, "mode": mode,
     }
@@ -168,6 +173,7 @@ def action_for(category: str, score: float) -> list[str]:
 # ---------------------------------------------------------------------------
 DATA = load_all()
 ppi, summary, clusters, keywords, df = DATA["ppi"], DATA["summary"], DATA["clusters"], DATA["keywords"], DATA["df"]
+counts = DATA["counts"]
 
 st.sidebar.title("✈️ KAC-PPI")
 st.sidebar.caption("공항 페인포인트 진단지표")
@@ -300,25 +306,57 @@ elif page == "③ 클러스터링 뷰":
 # ---------------------------------------------------------------------------
 else:
     st.title("④ 데이터 기반 서비스 개선 처방 추천")
-    st.caption("PPI 점수 60점 이상 공항×카테고리를 자동 추출 → 권장 액션 + 우선순위")
+    st.caption("PPI 점수 + 표본 신뢰도 기준으로 공항×카테고리 처방을 자동 추출 → 권장 액션 + 우선순위")
 
-    threshold = st.slider("PPI 임계값", 40, 90, 60, step=5)
+    c1, c2 = st.columns(2)
+    threshold = c1.slider("PPI 임계값", 40, 90, 60, step=5)
+    min_n = c2.slider("최소 표본 (불편불만 건수)", 0, 30, 10, step=5,
+                      help="표본이 작은 셀은 1만명당 환산 시 점수가 과대평가될 수 있어, 즉시개선에서 제외하고 모니터링으로 분류합니다.")
+
     flat = ppi.reset_index().melt(id_vars="대상공항", var_name="카테고리", value_name="PPI")
-    flat = flat[flat["PPI"] >= threshold].sort_values("PPI", ascending=False)
-    flat["우선순위"] = flat["PPI"].apply(lambda v: "★★★ 즉시" if v >= 75 else ("★★ 단기" if v >= 60 else "★ 모니터링"))
-
-    st.metric("처방 대상 (공항×카테고리)", f"{len(flat)}건")
-    if flat.empty:
-        st.warning("임계값을 낮춰 보세요.")
+    if counts is not None:
+        cnt = counts.reset_index().melt(id_vars="대상공항", var_name="카테고리", value_name="건수")
+        flat = flat.merge(cnt, on=["대상공항", "카테고리"], how="left")
     else:
-        for _, r in flat.iterrows():
+        flat["건수"] = pd.NA
+    flat = flat[flat["PPI"] >= threshold].sort_values("PPI", ascending=False)
+
+    def _tier(n):
+        if pd.isna(n): return "—"
+        n = int(n)
+        if n >= 30: return "●●● 충분"
+        if n >= 10: return "●● 보통"
+        return "● 낮음"
+
+    def _prio(row):
+        n = row["건수"]
+        if pd.notna(n) and int(n) < min_n:
+            return "● 저표본·모니터링"
+        return "★★★ 즉시" if row["PPI"] >= 75 else ("★★ 단기" if row["PPI"] >= 60 else "★ 모니터링")
+
+    flat["신뢰도"] = flat["건수"].apply(_tier)
+    flat["우선순위"] = flat.apply(_prio, axis=1)
+
+    hide_low = st.checkbox("저표본 셀 숨기기 (고신뢰 처방만 보기)", value=False)
+    view = flat[flat["우선순위"] != "● 저표본·모니터링"] if hide_low else flat
+
+    cA, cB = st.columns(2)
+    cA.metric("처방 대상 (공항×카테고리)", f"{len(view)}건")
+    cB.metric("고신뢰 즉시개선 (●●● · PPI≥75)",
+              f"{len(flat[(flat['신뢰도'] == '●●● 충분') & (flat['PPI'] >= 75)])}건")
+
+    if view.empty:
+        st.warning("임계값/표본 조건을 조정해 보세요.")
+    else:
+        for _, r in view.iterrows():
             with st.container():
-                st.markdown(f"### {r['대상공항']} — {r['카테고리']} `PPI {r['PPI']:.1f}` {r['우선순위']}")
+                n_txt = f" · 불편불만 {int(r['건수'])}건 {r['신뢰도']}" if pd.notna(r["건수"]) else ""
+                st.markdown(f"### {r['대상공항']} — {r['카테고리']} `PPI {r['PPI']:.1f}` {r['우선순위']}{n_txt}")
                 actions = action_for(r["카테고리"], r["PPI"])
                 for i, a in enumerate(actions, 1):
                     st.markdown(f"- **액션 {i}.** {a}")
                 st.markdown("---")
 
     st.subheader("처방 패키지 다운로드")
-    csv = flat.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+    csv = view.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
     st.download_button("CSV로 다운로드", csv, "처방패키지.csv", "text/csv")
