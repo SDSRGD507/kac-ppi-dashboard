@@ -278,6 +278,19 @@ def run_all(path: Path | str = VOC_FILE):
             .groupby(["대상공항", "내용분류2"]).size().unstack(fill_value=0)
             .reindex(index=TARGET_AIRPORTS, columns=TARGET_CATEGORIES, fill_value=0))
     _cnt.to_csv(DATA_DIR / "ppi_counts.csv", encoding="utf-8-sig")
+
+    # 셀별(공항×카테고리) 실제 민원 키워드 Top3 (내용분류3) — 데이터 기반 처방 근거
+    _comp = df[df["VOC유형"] == "불편불만"].copy()
+    _comp["내용분류3"] = _comp["내용분류3"].replace({"nan": "", "None": ""}).fillna("")
+    _EXC = {"", "기타", "nan", "None"}
+    _rows = []
+    for _ap in TARGET_AIRPORTS:
+        for _cat in TARGET_CATEGORIES:
+            _sub = _comp[(_comp["대상공항"] == _ap) & (_comp["내용분류2"] == _cat)]
+            _kw = _sub[~_sub["내용분류3"].isin(_EXC)]["내용분류3"].value_counts().head(3)
+            _txt = " · ".join(f"{k}({int(v)})" for k, v in _kw.items())
+            _rows.append({"대상공항": _ap, "카테고리": _cat, "키워드": _txt})
+    pd.DataFrame(_rows).to_csv(DATA_DIR / "ppi_cell_keywords.csv", index=False, encoding="utf-8-sig")
     summary = pd.DataFrame({
         "종합_PPI": ppi.mean(axis=1).round(1),
         "1위_카테고리": ppi.idxmax(axis=1),

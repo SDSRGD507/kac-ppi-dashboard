@@ -102,8 +102,13 @@ def load_all():
     except FileNotFoundError:
         counts = None
 
+    try:
+        cell_kw = pd.read_csv(_csv("ppi_cell_keywords.csv"), encoding="utf-8-sig")
+    except FileNotFoundError:
+        cell_kw = None
+
     return {
-        "df": df, "ppi": ppi, "components": components, "counts": counts,
+        "df": df, "ppi": ppi, "components": components, "counts": counts, "cell_kw": cell_kw,
         "clusters": clusters, "keywords": keywords, "summary": summary,
         "n_voc": n_voc, "n_users": n_users, "mode": mode,
     }
@@ -174,6 +179,7 @@ def action_for(category: str, score: float) -> list[str]:
 DATA = load_all()
 ppi, summary, clusters, keywords, df = DATA["ppi"], DATA["summary"], DATA["clusters"], DATA["keywords"], DATA["df"]
 counts = DATA["counts"]
+cell_kw = DATA["cell_kw"]
 
 st.sidebar.title("✈️ KAC-PPI")
 st.sidebar.caption("공항 페인포인트 진단지표")
@@ -306,7 +312,7 @@ elif page == "③ 클러스터링 뷰":
 # ---------------------------------------------------------------------------
 else:
     st.title("④ 데이터 기반 서비스 개선 처방 추천")
-    st.caption("PPI 점수 + 표본 신뢰도 기준으로 공항×카테고리 처방을 자동 추출 → 권장 액션 + 우선순위")
+    st.caption("PPI(어디) + 표본 신뢰도(신뢰성) + 셀별 실제 민원 키워드(무엇)를 근거로 처방을 자동 추출")
 
     c1, c2 = st.columns(2)
     threshold = c1.slider("PPI 임계값", 40, 90, 60, step=5)
@@ -319,6 +325,10 @@ else:
         flat = flat.merge(cnt, on=["대상공항", "카테고리"], how="left")
     else:
         flat["건수"] = pd.NA
+    if cell_kw is not None:
+        flat = flat.merge(cell_kw, on=["대상공항", "카테고리"], how="left")
+    else:
+        flat["키워드"] = ""
     flat = flat[flat["PPI"] >= threshold].sort_values("PPI", ascending=False)
 
     def _tier(n):
@@ -352,6 +362,9 @@ else:
             with st.container():
                 n_txt = f" · 불편불만 {int(r['건수'])}건 {r['신뢰도']}" if pd.notna(r["건수"]) else ""
                 st.markdown(f"### {r['대상공항']} — {r['카테고리']} `PPI {r['PPI']:.1f}` {r['우선순위']}{n_txt}")
+                kw = r.get("키워드", "")
+                if isinstance(kw, str) and kw.strip():
+                    st.markdown(f"**주요 민원 키워드(데이터):** {kw}")
                 actions = action_for(r["카테고리"], r["PPI"])
                 for i, a in enumerate(actions, 1):
                     st.markdown(f"- **액션 {i}.** {a}")
